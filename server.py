@@ -397,11 +397,14 @@ Output format:
                 return await team.execute_task(self.task, broadcast)
         await asyncio.gather(*[throttled(t) for t in self.population])
 
-        # Phase 2: Evaluate
-        for team in self.population:
-            team.fitness, team.reasoning = await self.evaluate(team)
-            await broadcast({"type": "team_scored", "team_id": team.id,
-                            "fitness": team.fitness, "reasoning": team.reasoning})
+        # Phase 2: Evaluate (PARALLEL — uses same semaphore as execution)
+        async def eval_team(team):
+            async with semaphore:
+                team.fitness, team.reasoning = await self.evaluate(team)
+                await broadcast({"type": "team_scored", "team_id": team.id,
+                                "fitness": team.fitness, "reasoning": team.reasoning})
+
+        await asyncio.gather(*[eval_team(t) for t in self.population])
 
         # Record all team genomes + scores for synthesis
         for team in self.population:
@@ -581,16 +584,20 @@ Output format:
             f"Extinct roles: {', '.join(brief['extinct_roles']) or 'None — all initial roles survived'}\n\n"
             f"WINNING GENOME: {json.dumps(brief['winner']['genome'])}\n"
             f"WINNING FITNESS: {brief['winner']['fitness']}\n\n"
-            f"Respond in EXACTLY three sections. No preamble. No hedging. State conclusions.\n\n"
+            f"Respond in EXACTLY three sections. No preamble. No hedging. State conclusions.\n"
+            f"Use heavy paragraph breaks and bullet points for readability.\n\n"
             f"1. THE WINNING ARCHETYPE\n"
-            f"Name it. State the gene combination AND the role composition that won. "
-            f"Explain WHY this combination worked mechanically for this specific task.\n\n"
+            f"**Name:** (Give it a bold name)\n"
+            f"**Genes:** (List hierarchy, comms, decisions)\n"
+            f"**Roles:** (List the winning roles)\n"
+            f"**Why it worked:** (Explain the mechanics in 2-3 brief bullet points).\n\n"
             f"2. KEY DISCOVERY\n"
             f"What did evolution find that a human designer would NOT have chosen? "
-            f"Use the evaluator reasoning and extinct roles as evidence.\n\n"
-            f"3. PRACTICAL INSIGHT\n"
-            f"If a human team tackled this task, how should they organize? "
-            f"Be specific about team size, hierarchy, communication pattern, and which roles to staff."
+            f"Use the evaluator reasoning and extinct roles as evidence. (1 concise paragraph).\n\n"
+            f"3. DEPLOYMENT RECOMMENDATION\n"
+            f"If an engineer were deploying a multi-agent system for this task, "
+            f"what team structure should they configure? "
+            f"Format as a bulleted checklist (Agent count, Hierarchy, Comms, Decisions, exact Roles to assign, and what to avoid)."
         )
 
         try:

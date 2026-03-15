@@ -711,7 +711,12 @@ function handleMessage(msg) {
       const overlay = document.getElementById('synthesis-overlay');
       overlay.style.opacity = 0;
       overlay.style.display = 'block';
-      document.getElementById('synthesis-text').textContent = msg.text;
+
+      // Parse newlines and **markdown** into styled HTML
+      let formattedText = msg.text.replace(/\n/g, '<br>');
+      formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#00FFCC">$1</strong>');
+      document.getElementById('synthesis-text').innerHTML = formattedText;
+
       requestAnimationFrame(() => { overlay.style.opacity = 1; });
       addFeed('Synthesis complete.', '#fff');
       break;
