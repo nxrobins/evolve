@@ -313,15 +313,22 @@ class EvolutionEngine:
         self.population = [Team(genome=OrganizationalGenome.random()) for _ in range(10)]
 
     async def evaluate(self, team):
-        system_prompt = """You are a harsh organizational critic. Return ONLY valid JSON.
+        system_prompt = """You are a ruthless organizational critic. Return ONLY valid JSON.
 Most teams score 2-3. A 4 is impressive. A 5 is virtually never given.
+
+CRITICAL RUBRIC:
+1. Completeness: Did they solve the core task? (1-5)
+2. Coherence: Does this read like a unified team, or a disjointed mess? (1-5)
+3. Depth: Is the strategy profound, or just surface-level? (1-5)
+4. Efficiency (The Bloat Penalty): Are agents repeating each other? Is the output noisy and verbose?
+    (Score 1 = Highly redundant/bloated. Score 5 = Laser-focused, zero wasted words.)
 
 Fields:
 - reasoning: EXACTLY two sentences. One on biggest strength, one on biggest weakness.
-- scores: {completeness, coherence, depth, structure_use} (all 1-5)
+- scores: {completeness, coherence, depth, efficiency} (all 1-5)
 
 Output format:
-{"reasoning": "...", "scores": {"completeness": N, "coherence": N, "depth": N, "structure_use": N}}"""
+{"reasoning": "...", "scores": {"completeness": N, "coherence": N, "depth": N, "efficiency": N}}"""
 
         user_input = (f"Task: {self.task}\n\n"
                       f"Team Structure: {team.genome.describe()}\n\n"
@@ -338,7 +345,7 @@ Output format:
                 temperature=0.3,
             )
             data = json.loads(response.choices[0].message.content)
-            keys = ["completeness", "coherence", "depth", "structure_use"]
+            keys = ["completeness", "coherence", "depth", "efficiency"]
             score_sum = sum(data['scores'][k] for k in keys)
             fitness = score_sum / (5 * len(keys))
             reasoning = data.get('reasoning', '')
@@ -494,17 +501,20 @@ Output format:
                 temperature=0.6,
             )
             raw = response.choices[0].message.content or "Synthesis unavailable."
-            return self._strip_think(raw)
+            result = self._strip_think(raw)
+            if len(result) < 20:
+                raise ValueError("Synthesis too short after stripping")
+            return result
         except Exception as e:
             # Fallback to 70B
             try:
                 response = await client.chat.completions.create(
                     model="meta-llama/Llama-3.3-70B-Instruct-fast",
                     messages=[
-                        {"role": "system", "content": "You are a decisive organizational theorist. No deliberation. State conclusions directly. Under 250 words total."},
+                        {"role": "system", "content": "You are a decisive organizational theorist. Follow the EXACT section headers given. No deliberation. Under 250 words."},
                         {"role": "user", "content": prompt}
                     ],
-                    max_tokens=400,
+                    max_tokens=800,
                     temperature=0.5,
                 )
                 return response.choices[0].message.content or "Synthesis unavailable."

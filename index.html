@@ -61,7 +61,7 @@
     scrollbar-color:#333 transparent; }
   #action-feed::-webkit-scrollbar { width:3px; }
   #action-feed::-webkit-scrollbar-thumb { background:#333; }
-  #action-feed div { padding:1px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #action-feed div { padding:1px 0; white-space:normal; word-wrap:break-word; }
   #action-feed.collapsed { display:none; }
 
   /* ── Synthesis Overlay ── */
@@ -366,30 +366,7 @@ function drawAgent(agentData, agentIdx, team, pos) {
     ctx.globalAlpha = 1;
   }
 
-  // Role label — truncated, positioned outward from team center
-  const rawLabel = agentData.role || '';
-  if (rawLabel && team.alive) {
-    const label = rawLabel.length > 8 ? rawLabel.substring(0, 7) + '…' : rawLabel;
-    ctx.fillStyle = '#777';
-    ctx.font = "8px 'JetBrains Mono', monospace";
-    const dx = ax - team.x;
-    const dy = ay - team.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const pad = size + 5;
-    if (dist < 2) {
-      ctx.textAlign = 'center';
-      ctx.fillText(label, ax, ay + size + 12);
-    } else {
-      const nx = dx / dist;
-      const ny = dy / dist;
-      const lx = ax + nx * pad;
-      const ly = ay + ny * pad + 3;
-      if (nx > 0.3) ctx.textAlign = 'left';
-      else if (nx < -0.3) ctx.textAlign = 'right';
-      else ctx.textAlign = 'center';
-      ctx.fillText(label, lx, ly);
-    }
-  }
+  // Role labels removed — declutters the canvas
 }
 
 // ─── Draw Full Team ────────────────────────────────────────────────────────
@@ -415,10 +392,7 @@ function drawTeam(team) {
     ctx.fillText(team.fitness.toFixed(2), team.x, team.y + RADIUS + 34);
   }
 
-  // Hierarchy label above
-  ctx.fillStyle = team.alive ? '#666' : '#222';
-  ctx.font = "10px 'JetBrains Mono', monospace";
-  ctx.fillText(team.genome.hierarchy, team.x, team.y - RADIUS - 10);
+  // Hierarchy labels removed — layout already communicates structure
 }
 
 // ─── Sonar Pings ───────────────────────────────────────────────────────────
