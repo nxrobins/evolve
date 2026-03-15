@@ -72,7 +72,6 @@ python server.py
 # Open index.html in a browser
 ```
 
-A full 5-generation evolution run takes under 60 seconds.
 
 ## The Thesis
 
@@ -80,7 +79,6 @@ Every competitor in the agent framework space — LangChain, CrewAI, AutoGen —
 
 Topology assumes the human engineer is wrong. We don't build the house. We run a thousand evolutionary simulations to discover the optimal blueprint, and then we hand it to them.
 
-**Stop designing. Start discovering.**
 
 ## Built At
 
