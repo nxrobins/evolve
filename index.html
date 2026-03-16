@@ -104,10 +104,6 @@
   #gen-display { position:absolute; top:20px; right:320px; z-index:10;
     font-family:'JetBrains Mono',monospace; font-size:13px; color:#FFD700; letter-spacing:1px; }
 
-  /* ── Demo Indicator ── */
-  #demo-indicator { display:none; position:absolute; bottom:90px; right:10px; z-index:20;
-    font-size:10px; color:#444; font-family:'JetBrains Mono',monospace; }
-
   canvas#fitness-graph { width:100%; height:100px; display:block; margin-top:8px; }
 </style>
 </head>
@@ -179,10 +175,12 @@
 
 <div id="start-bar">
   <input id="task-input" placeholder="Enter a task for agents to compete on..." value="Design an AI inference platform that serves 10,000 concurrent users with minimal latency and cost.">
+  <select id="mode-select" style="padding:12px 12px; background:#111; border:1px solid #333; color:#999;
+    font-family:'JetBrains Mono',monospace; font-size:11px; border-radius:4px; outline:none; cursor:pointer;">
+    <option value="standard">STANDARD</option>
+  </select>
   <button id="start-btn">EVOLVE</button>
 </div>
-
-<div id="demo-indicator">&#9673; RECORDED</div>
 
 <script>
 // ─── Collapsible Panels ────────────────────────────────────────────────────
@@ -221,7 +219,6 @@ let state = {
 
 let ws = null;
 let wsConnected = false;
-let DEMO_DATA = [];
 
 // ─── Canvas Setup ──────────────────────────────────────────────────────────
 const canvas = document.getElementById('main');
@@ -732,9 +729,6 @@ function handleMessage(msg) {
       break;
     }
 
-    case 'fallback_warning':
-      addFeed(`WARNING: ${msg.elapsed}s elapsed — press D for demo mode`, DANGER);
-      break;
   }
 }
 
@@ -756,21 +750,13 @@ function connect() {
 }
 connect();
 
-// Auto-switch to demo mode if no connection in 3s
-setTimeout(() => {
-  if (!wsConnected && DEMO_DATA.length > 0) {
-    document.getElementById('status-text').textContent = 'Demo mode (no server)';
-    document.getElementById('connection-dot').style.background = GOLD;
-    enterDemoMode();
-  }
-}, 3000);
-
 // ─── Start Button ───────────────────────────────────────────────────────────
 document.getElementById('start-btn').addEventListener('click', () => {
   const task = document.getElementById('task-input').value.trim();
   if (!task) return;
   if (wsConnected && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'start', task }));
+    const mode = document.getElementById('mode-select').value;
+    ws.send(JSON.stringify({ type: 'start', task, mode }));
     document.getElementById('start-btn').disabled = true;
     document.getElementById('start-btn').textContent = 'EVOLVING...';
     state.running = true;
@@ -786,35 +772,8 @@ document.getElementById('start-btn').addEventListener('click', () => {
   }
 });
 
-// ─── Demo Mode ──────────────────────────────────────────────────────────────
-function enterDemoMode() {
-  document.getElementById('demo-indicator').style.display = 'block';
-  runDemoMode();
-}
-
-function runDemoMode() {
-  state.running = true;
-  state.fitnessHistory = [];
-  state.teams = [];
-  state.bestTeamId = null;
-  document.getElementById('start-btn').disabled = true;
-  document.getElementById('start-btn').textContent = 'DEMO MODE';
-  document.getElementById('action-feed').innerHTML = '';
-  document.getElementById('scores-panel').innerHTML = '';
-  DEMO_DATA.forEach((msg) => {
-    setTimeout(() => handleMessage(msg), (msg._delay * 1000) || 0);
-  });
-}
-
-// D key = instant demo switch
+// ─── Keyboard Shortcuts ─────────────────────────────────────────────────────
 document.addEventListener('keydown', (e) => {
-  if ((e.key === 'd' || e.key === 'D') && !e.ctrlKey && !e.metaKey &&
-      document.activeElement !== document.getElementById('task-input')) {
-    if (ws) ws.close();
-    document.getElementById('connection-dot').style.background = GOLD;
-    document.getElementById('status-text').textContent = 'Demo mode (hotkey)';
-    if (DEMO_DATA.length > 0) enterDemoMode();
-  }
   // R = reset
   if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey &&
       document.activeElement !== document.getElementById('task-input')) {
@@ -834,12 +793,6 @@ document.addEventListener('keydown', (e) => {
     drawFitnessGraph();
   }
 });
-
-// Load demo data if available
-fetch('demo_data.json')
-  .then(r => r.ok ? r.json() : [])
-  .then(data => { DEMO_DATA = data; })
-  .catch(() => {});
 </script>
 </body>
 </html>

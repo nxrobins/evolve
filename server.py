@@ -1,4 +1,4 @@
-import asyncio, json, os, random, copy, time, uuid, re
+import asyncio, json, os, random, copy, time, re
 import websockets
 from openai import AsyncOpenAI
 
@@ -6,8 +6,6 @@ client = AsyncOpenAI(
     base_url="https://api.tokenfactory.nebius.com/v1/",
     api_key=os.environ.get("NEBIUS_API_KEY")
 )
-
-RECORD_MODE = True
 
 # ─── Organizational Genome ───────────────────────────────────────────────────
 
@@ -463,9 +461,6 @@ Output format:
         await broadcast({"type": "generation_end", "gen": self.generation,
                         "best_fitness": best_fitness, "avg_fitness": avg_fitness})
 
-        gen_elapsed = time.time() - gen_start
-        if gen_elapsed > 15:
-            await broadcast({"type": "fallback_warning", "elapsed": round(gen_elapsed, 1)})
 
     async def generation_insight(self, gen_number, survivors, dead, avg_fitness):
         """70B produces a two-sentence insight after each generation."""
@@ -659,23 +654,16 @@ class EvolveServer:
         async for message in websocket:
             data = json.loads(message)
             if data["type"] == "start":
-                asyncio.create_task(self.run_evolution(websocket, data["task"]))
+                asyncio.create_task(self.run_evolution(websocket, data["task"], data.get("mode", "standard")))
 
-    async def run_evolution(self, websocket, task):
-        # Isolated engine and recording state per connection
+    async def run_evolution(self, websocket, task, mode="standard"):
         engine = EvolutionEngine()
-        run_start_time = time.time()
-        local_records = []
 
-        # Broadcast scoped to this single websocket
         async def client_broadcast(message):
-            if RECORD_MODE:
-                message['_delay'] = round(time.time() - run_start_time, 3)
-                local_records.append(message)
             try:
                 await websocket.send(json.dumps(message))
             except Exception:
-                pass  # Client disconnected mid-run
+                pass
 
         await engine.initialize(task)
         for gen in range(1, 6):
@@ -686,19 +674,9 @@ class EvolveServer:
             })
             await engine.run_generation(broadcast=client_broadcast)
 
-        # Final synthesis
         synthesis = await engine.synthesize()
         await client_broadcast({"type": "synthesis", "text": synthesis})
         await client_broadcast({"type": "complete", "winner": engine.get_best_team()})
-
-        # Save demo data: unique file for archival + fixed file for frontend fallback
-        if RECORD_MODE:
-            unique_name = f"demo_data_{uuid.uuid4().hex[:8]}.json"
-            with open(unique_name, "w") as f:
-                json.dump(local_records, f)
-            with open("demo_data.json", "w") as f:
-                json.dump(local_records, f)
-            print(f"[RECORD] Saved {len(local_records)} messages to {unique_name} + demo_data.json")
 
 async def main():
     server = EvolveServer()
